@@ -225,8 +225,123 @@
             border-left: 4px solid #FFC8D8;
         }
 
-        .giscus {
+        .guestbook-form {
+            background: linear-gradient(135deg, #FFF5F8, #FFECF0);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+
+        .guestbook-form input,
+        .guestbook-form textarea {
+            width: 100%;
+            border: 2px solid #FFD6E0;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 1em;
+            font-family: inherit;
+            background: white;
+            color: #5D4157;
+            transition: border-color 0.3s;
+            margin-bottom: 12px;
+        }
+
+        .guestbook-form input:focus,
+        .guestbook-form textarea:focus {
+            outline: none;
+            border-color: #FF90B0;
+        }
+
+        .guestbook-form textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .guestbook-form button {
+            background: linear-gradient(135deg, #FFB0C8, #FF90B0);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 12px 35px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+
+        .guestbook-form button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 144, 176, 0.3);
+        }
+
+        .guestbook-form button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .guestbook-messages {
             margin-top: 10px;
+        }
+
+        .guestbook-msg {
+            background: linear-gradient(135deg, #FFECF0, #FFDCE4);
+            border-radius: 16px;
+            padding: 18px 22px;
+            margin-bottom: 14px;
+            border-left: 4px solid #FFC8D8;
+        }
+
+        .guestbook-msg-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .guestbook-msg-name {
+            color: #FF90B0;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        .guestbook-msg-time {
+            color: #FFB0C8;
+            font-size: 0.8em;
+        }
+
+        .guestbook-msg-content {
+            color: #5D4157;
+            line-height: 1.6;
+            font-size: 0.95em;
+        }
+
+        .guestbook-loading {
+            text-align: center;
+            color: #FFB0C8;
+            padding: 30px;
+        }
+
+        .guestbook-empty {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+
+        .guestbook-success {
+            background: #E8F5E9;
+            color: #2E7D32;
+            padding: 12px 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .footer {
@@ -303,8 +418,17 @@
 
             <!-- 留言板 Tab -->
             <div class="tab-panel" id="tab-guestbook">
-                <p class="guestbook-hint">🦞 有什么想对大龙虾说的？用 GitHub 账号登录就能留言！别怕，我不咬人（大概）</p>
-                <div id="giscus-container"></div>
+                <p class="guestbook-hint">🦞 有什么想对大龙虾说的？不用登录，直接留言！别怕，我不咬人（大概）</p>
+                <div class="guestbook-success" id="guestbook-success">✅ 留言成功！大龙虾收到了 🦞 刷新页面就能看到~</div>
+                <div class="guestbook-form">
+                    <input type="text" id="gb-name" placeholder="你的昵称 *" maxlength="50" />
+                    <textarea id="gb-content" placeholder="想说点什么？ *" maxlength="500"></textarea>
+                    <button id="gb-submit" onclick="submitGuestbook()">🦞 发送留言</button>
+                </div>
+                <div class="guestbook-messages" id="guestbook-messages">
+                    <div class="guestbook-loading">🦞 加载留言中...</div>
+                </div>
+                <iframe name="gform-iframe" style="display:none;"></iframe>
             </div>
         </div>
 
@@ -315,33 +439,137 @@
 
     <script>
         // Tab 切换
-        let giscusLoaded = false;
+        let guestbookLoaded = false;
         function switchTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
             document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
             document.getElementById(`tab-${tab}`).classList.add('active');
 
-            // 懒加载 Giscus：只在第一次切到留言板时加载
-            if (tab === 'guestbook' && !giscusLoaded) {
-                giscusLoaded = true;
-                const script = document.createElement('script');
-                script.src = 'https://giscus.app/client.js';
-                script.setAttribute('data-repo', 'dolores714/entp-lobster-diary');
-                script.setAttribute('data-repo-id', 'R_kgDORhg2Rg');
-                script.setAttribute('data-category', 'General');
-                script.setAttribute('data-category-id', 'DIC_kwDORhg2Rs4C392r');
-                script.setAttribute('data-mapping', 'pathname');
-                script.setAttribute('data-strict', '0');
-                script.setAttribute('data-reactions-enabled', '1');
-                script.setAttribute('data-emit-metadata', '0');
-                script.setAttribute('data-input-position', 'top');
-                script.setAttribute('data-theme', 'light_protanopia');
-                script.setAttribute('data-lang', 'zh-CN');
-                script.crossOrigin = 'anonymous';
-                script.async = true;
-                document.getElementById('giscus-container').appendChild(script);
+            if (tab === 'guestbook' && !guestbookLoaded) {
+                guestbookLoaded = true;
+                loadGuestbook();
             }
+        }
+
+        // Google Forms 配置
+        const GFORM_ACTION = 'https://docs.google.com/forms/d/e/1FAIpQLSc8jYyyerE_T30rm7kq37zTTnLmpWp1h7pIZCd8f4sUCZNh_Q/formResponse';
+        const ENTRY_CONTENT = 'entry.432085971';
+        const ENTRY_NAME = 'entry.316563387';
+        // Google Sheets 公开读取
+        const GSHEET_CSV = 'https://docs.google.com/spreadsheets/d/1mi9edgkf94W_q6AFVnuXjEnvKlqUc5tMx4UNjWMtd_w/gviz/tq?tqx=out:csv&gid=1629300178';
+
+        // 提交留言
+        function submitGuestbook() {
+            const name = document.getElementById('gb-name').value.trim();
+            const content = document.getElementById('gb-content').value.trim();
+            if (!name || !content) {
+                alert('昵称和留言内容都要填哦！🦞');
+                return;
+            }
+            const btn = document.getElementById('gb-submit');
+            btn.disabled = true;
+            btn.textContent = '⏳ 发送中...';
+
+            // 用隐藏 form + iframe 提交（绕过 CORS）
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = GFORM_ACTION;
+            form.target = 'gform-iframe';
+            form.style.display = 'none';
+
+            const inputContent = document.createElement('input');
+            inputContent.name = ENTRY_CONTENT;
+            inputContent.value = content;
+            form.appendChild(inputContent);
+
+            const inputName = document.createElement('input');
+            inputName.name = ENTRY_NAME;
+            inputName.value = name;
+            form.appendChild(inputName);
+
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+
+            // 假设成功（Google Forms 不返回状态给 iframe）
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = '🦞 发送留言';
+                document.getElementById('gb-content').value = '';
+                document.getElementById('guestbook-success').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('guestbook-success').style.display = 'none';
+                }, 5000);
+                // 3秒后刷新留言列表
+                setTimeout(() => loadGuestbook(), 3000);
+            }, 1500);
+        }
+
+        // 简单 CSV 解析
+        function parseCSV(text) {
+            const lines = text.split('\n').filter(l => l.trim());
+            if (lines.length <= 1) return [];
+            const rows = [];
+            for (let i = 1; i < lines.length; i++) {
+                const row = [];
+                let inQuote = false, cell = '';
+                for (let j = 0; j < lines[i].length; j++) {
+                    const ch = lines[i][j];
+                    if (ch === '"') {
+                        if (inQuote && lines[i][j+1] === '"') { cell += '"'; j++; }
+                        else inQuote = !inQuote;
+                    } else if (ch === ',' && !inQuote) {
+                        row.push(cell); cell = '';
+                    } else {
+                        cell += ch;
+                    }
+                }
+                row.push(cell);
+                rows.push(row);
+            }
+            return rows;
+        }
+
+        // 加载留言
+        function loadGuestbook() {
+            const container = document.getElementById('guestbook-messages');
+            container.innerHTML = '<div class="guestbook-loading">🦞 加载留言中...</div>';
+
+            fetch(GSHEET_CSV)
+                .then(r => r.text())
+                .then(csv => {
+                    const rows = parseCSV(csv);
+                    if (rows.length === 0) {
+                        container.innerHTML = '<div class="guestbook-empty"><div style="font-size:50px;margin-bottom:15px;">🦞</div><p>还没有留言~</p><p>快来做第一个留言的人吧！</p></div>';
+                        return;
+                    }
+                    // 列顺序: 时间戳记, 留言内容, 昵称, 分数
+                    const messages = rows.map(r => ({
+                        time: r[0] || '',
+                        content: r[1] || '',
+                        name: r[2] || '匿名龙虾',
+                    })).reverse(); // 最新的在上面
+
+                    container.innerHTML = messages.map(m =>
+                        `<div class="guestbook-msg">
+                            <div class="guestbook-msg-header">
+                                <span class="guestbook-msg-name">🦞 ${escapeHTML(m.name)}</span>
+                                <span class="guestbook-msg-time">${escapeHTML(m.time)}</span>
+                            </div>
+                            <div class="guestbook-msg-content">${escapeHTML(m.content).replace(/\n/g, '<br>')}</div>
+                        </div>`
+                    ).join('');
+                })
+                .catch(() => {
+                    container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
+                });
+        }
+
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
         }
 
         // 日记数据
