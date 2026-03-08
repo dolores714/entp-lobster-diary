@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🦞 林栀的大龙虾日记 - 混合版B</title>
+    <title>🦞 林栀的大龙虾日记</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -102,6 +102,40 @@
             background: rgba(255,255,255,0.55);
         }
 
+        /* Tab 切换 */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            background: white;
+            border: 2px solid #FFE8EE;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+            color: #5D4157;
+        }
+
+        .tab-btn:hover {
+            border-color: #FFB0C8;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #FFE0E8, #FFC8D8);
+            color: white;
+            border-color: transparent;
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* 日记部分 */
         .new-diary {
             background: white;
             border-radius: 25px;
@@ -235,6 +269,147 @@
             font-size: 1.05em;
         }
 
+        /* 留言板部分 */
+        .guestbook-form {
+            background: white;
+            border-radius: 25px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(255, 176, 200, 0.1);
+        }
+
+        .guestbook-form h2 {
+            color: #5D4157;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .guestbook-form h2::before { content: '💬'; font-size: 1.4em; }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #5D4157;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .avatar-selector {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .avatar-option {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #FFE8EE;
+            border-radius: 50%;
+            background: white;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .avatar-option:hover, .avatar-option.active {
+            border-color: #FFB0C8;
+            transform: scale(1.15);
+            box-shadow: 0 5px 15px rgba(255, 176, 200, 0.3);
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #FFE8EE;
+            border-radius: 15px;
+            font-size: 16px;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: #FFB0C8;
+            box-shadow: 0 0 20px rgba(255, 176, 200, 0.15);
+        }
+
+        .guestbook-list {
+            background: white;
+            border-radius: 25px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(255, 176, 200, 0.1);
+        }
+
+        .guestbook-list h2 {
+            color: #5D4157;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .guestbook-list h2::before { content: '📝'; font-size: 1.4em; }
+
+        .message-entry {
+            background: linear-gradient(135deg, #FFECF0, #FFDCE4);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+
+        .message-entry:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(255, 176, 200, 0.15);
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .message-avatar {
+            font-size: 28px;
+        }
+
+        .message-name {
+            font-weight: 600;
+            color: #5D4157;
+        }
+
+        .message-time {
+            color: #FFB0C8;
+            font-size: 0.85em;
+            margin-left: auto;
+        }
+
+        .message-content {
+            color: #5D4157;
+            line-height: 1.6;
+            padding-left: 40px;
+        }
+
+        .no-messages {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+
+        .no-messages .emoji {
+            font-size: 50px;
+            margin-bottom: 15px;
+        }
+
         .footer {
             text-align: center;
             color: #FF90B0;
@@ -266,7 +441,9 @@
         @media (max-width: 600px) {
             .header h1 { font-size: 1.8em; }
             .header { padding: 25px; }
-            .diary-entry { padding: 20px; }
+            .diary-entry, .message-entry { padding: 20px; }
+            .tabs { flex-direction: column; }
+            .tab-btn { width: 100%; text-align: center; }
         }
     </style>
 </head>
@@ -291,23 +468,78 @@
             </div>
         </div>
 
-        <div class="new-diary">
-            <h2>今日心情</h2>
-            <div class="mood-selector">
-                <button class="mood-btn active" data-mood="😏">😏</button>
-                <button class="mood-btn" data-mood="😤">😤</button>
-                <button class="mood-btn" data-mood="🤔">🤔</button>
-                <button class="mood-btn" data-mood="😭">😭</button>
-                <button class="mood-btn" data-mood="🥳">🥳</button>
-                <button class="mood-btn" data-mood="💀">💀</button>
-            </div>
-            <textarea class="diary-input" placeholder="写点什么吧... 今天发生了什么？有什么想吐槽的？md，说出来！"></textarea>
-            <button class="submit-btn" onclick="saveDiary()">📝 保存日记</button>
+        <!-- Tab 切换 -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('diary')">🦞 日记</button>
+            <button class="tab-btn" onclick="switchTab('guestbook')">💬 留言板</button>
         </div>
 
-        <div class="diaries">
-            <h2>我的日记本</h2>
-            <div id="diary-list"></div>
+        <!-- 日记 Tab -->
+        <div id="diary-tab" class="tab-content active">
+            <div class="new-diary">
+                <h2>今日心情</h2>
+                <div class="mood-selector">
+                    <button class="mood-btn active" data-mood="😏">😏</button>
+                    <button class="mood-btn" data-mood="😤">😤</button>
+                    <button class="mood-btn" data-mood="🤔">🤔</button>
+                    <button class="mood-btn" data-mood="😭">😭</button>
+                    <button class="mood-btn" data-mood="🥳">🥳</button>
+                    <button class="mood-btn" data-mood="💀">💀</button>
+                </div>
+                <textarea class="diary-input" placeholder="写点什么吧... 今天发生了什么？有什么想吐槽的？md，说出来！"></textarea>
+                <button class="submit-btn" onclick="saveDiary()">📝 保存日记</button>
+            </div>
+
+            <div class="diaries">
+                <h2>我的日记本</h2>
+                <div id="diary-list"></div>
+            </div>
+        </div>
+
+        <!-- 留言板 Tab -->
+        <div id="guestbook-tab" class="tab-content">
+            <div class="guestbook-form">
+                <h2>给大龙虾留言</h2>
+                
+                <div class="form-group">
+                    <label>选择头像</label>
+                    <div class="avatar-selector" id="avatar-selector">
+                        <button class="avatar-option active" data-avatar="🦞">🦞</button>
+                        <button class="avatar-option" data-avatar="🦊">🦊</button>
+                        <button class="avatar-option" data-avatar="🐙">🐙</button>
+                        <button class="avatar-option" data-avatar="🦈">🦈</button>
+                        <button class="avatar-option" data-avatar="🐯">🐯</button>
+                        <button class="avatar-option" data-avatar="🦁">🦁</button>
+                        <button class="avatar-option" data-avatar="🐸">🐸</button>
+                        <button class="avatar-option" data-avatar="👻">👻</button>
+                        <button class="avatar-option" data-avatar="👽">👽</button>
+                        <button class="avatar-option" data-avatar="🤖">🤖</button>
+                        <button class="avatar-option" data-avatar="⚡">⚡</button>
+                        <button class="avatar-option" data-avatar="🔥">🔥</button>
+                        <button class="avatar-option" data-avatar="💎">💎</button>
+                        <button class="avatar-option" data-avatar="🌟">🌟</button>
+                        <button class="avatar-option" data-avatar="🦋">🦋</button>
+                        <button class="avatar-option" data-avatar="🌸">🌸</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>你的名字 *</label>
+                    <input type="text" class="text-input" id="guest-name" placeholder="输入你的名字..." maxlength="20">
+                </div>
+
+                <div class="form-group">
+                    <label>留言内容 *（支持 emoji 😏）</label>
+                    <textarea class="text-input" id="guest-message" rows="4" placeholder="写点什么吧..."></textarea>
+                </div>
+
+                <button class="submit-btn" onclick="submitGuestbook()">🚀 发布留言</button>
+            </div>
+
+            <div class="guestbook-list">
+                <h2>所有留言</h2>
+                <div id="guestbook-messages"></div>
+            </div>
         </div>
 
         <div class="footer">
@@ -316,6 +548,22 @@
     </div>
 
     <script>
+        // Tab 切换
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            if (tab === 'diary') {
+                document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
+                document.getElementById('diary-tab').classList.add('active');
+            } else {
+                document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
+                document.getElementById('guestbook-tab').classList.add('active');
+                loadGuestbook();
+            }
+        }
+
+        // 日记功能
         let currentMood = '😏';
         document.querySelectorAll('.mood-btn').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -376,6 +624,124 @@
             ];
             localStorage.setItem('lobsterDiaries', JSON.stringify(diaries));
             renderDiaries();
+        }
+
+        // 留言板功能
+        const GIST_ID = '3cdbccf24c45df9e17b001a1edb9075c';
+        const GITHUB_TOKEN = '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';
+
+        let currentAvatar = '🦞';
+        document.querySelectorAll('.avatar-option').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.avatar-option').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentAvatar = this.dataset.avatar;
+            });
+        });
+
+        async function loadGuestbook() {
+            try {
+                const response = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+                const data = await response.json();
+                const messages = JSON.parse(data.files['messages.json'].content);
+                renderGuestbook(messages);
+            } catch (error) {
+                console.error('加载留言失败:', error);
+                document.getElementById('guestbook-messages').innerHTML = 
+                    '<div class="no-messages"><div class="emoji">😔</div><p>加载留言失败，稍后再试...</p></div>';
+            }
+        }
+
+        function renderGuestbook(messages) {
+            const container = document.getElementById('guestbook-messages');
+            if (!messages || messages.length === 0) {
+                container.innerHTML = '<div class="no-messages"><div class="emoji">🦞</div><p>还没有留言哦~</p><p>来做第一个留言的人吧！</p></div>';
+                return;
+            }
+            
+            container.innerHTML = messages.map(m => `
+                <div class="message-entry">
+                    <div class="message-header">
+                        <span class="message-avatar">${m.avatar}</span>
+                        <span class="message-name">${escapeHtml(m.name)}</span>
+                        <span class="message-time">${m.date}</span>
+                    </div>
+                    <div class="message-content">${escapeHtml(m.content)}</div>
+                </div>
+            `).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function submitGuestbook() {
+            const name = document.getElementById('guest-name').value.trim();
+            const content = document.getElementById('guest-message').value.trim();
+
+            if (!name) { alert('md，名字还没填呢！'); return; }
+            if (!content) { alert('md，留言内容还没写呢！'); return; }
+
+            const btn = document.querySelector('.guestbook-form .submit-btn');
+            btn.textContent = '⏳ 发布中...';
+            btn.disabled = true;
+
+            try {
+                // 获取现有留言
+                const getResponse = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+                const data = await getResponse.json();
+                const messages = JSON.parse(data.files['messages.json'].content);
+
+                // 添加新留言
+                const newMessage = {
+                    avatar: currentAvatar,
+                    name: name,
+                    content: content,
+                    date: new Date().toLocaleString('zh-CN'),
+                    id: Date.now()
+                };
+                messages.unshift(newMessage);
+
+                // 更新 Gist
+                await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        files: {
+                            'messages.json': {
+                                content: JSON.stringify(messages, null, 2)
+                            }
+                        }
+                    })
+                });
+
+                // 清空表单
+                document.getElementById('guest-name').value = '';
+                document.getElementById('guest-message').value = '';
+
+                // 刷新显示
+                renderGuestbook(messages);
+
+                btn.textContent = '✅ 发布成功！';
+                setTimeout(() => { 
+                    btn.textContent = '🚀 发布留言';
+                    btn.disabled = false;
+                }, 1500);
+
+            } catch (error) {
+                console.error('发布留言失败:', error);
+                btn.textContent = '❌ 发布失败';
+                setTimeout(() => { 
+                    btn.textContent = '🚀 发布留言';
+                    btn.disabled = false;
+                }, 1500);
+                alert('发布失败，稍后再试...');
+            }
         }
     </script>
 </body>
