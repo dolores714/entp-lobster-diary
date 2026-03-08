@@ -232,6 +232,46 @@
             margin-bottom: 25px;
         }
 
+        .avatar-picker {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .avatar-picker-label {
+            color: #FF90B0;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .avatar-option {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 3px solid #FFD6E0;
+            background: white;
+            font-size: 22px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .avatar-option:hover {
+            transform: scale(1.15);
+            border-color: #FF90B0;
+        }
+
+        .avatar-option.selected {
+            border-color: #FF90B0;
+            background: #FFF0F4;
+            box-shadow: 0 0 0 3px rgba(255, 144, 176, 0.2);
+            transform: scale(1.1);
+        }
+
         .guestbook-form input,
         .guestbook-form textarea {
             width: 100%;
@@ -291,6 +331,7 @@
             padding: 18px 22px;
             margin-bottom: 14px;
             border-left: 4px solid #FFC8D8;
+            position: relative;
         }
 
         .guestbook-msg-header {
@@ -304,6 +345,13 @@
             color: #FF90B0;
             font-weight: 600;
             font-size: 0.95em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .guestbook-msg-name .msg-avatar {
+            font-size: 1.3em;
         }
 
         .guestbook-msg-time {
@@ -315,6 +363,63 @@
             color: #5D4157;
             line-height: 1.6;
             font-size: 0.95em;
+        }
+
+        .guestbook-msg-delete {
+            background: none;
+            border: none;
+            color: #FFB0C8;
+            font-size: 0.75em;
+            cursor: pointer;
+            padding: 2px 8px;
+            border-radius: 10px;
+            transition: all 0.2s;
+            opacity: 0.5;
+        }
+
+        .guestbook-msg:hover .guestbook-msg-delete {
+            opacity: 1;
+        }
+
+        .guestbook-msg-delete:hover {
+            background: rgba(255, 100, 100, 0.1);
+            color: #FF6B6B;
+        }
+
+        /* 龙虾回复样式 */
+        .guestbook-reply {
+            background: linear-gradient(135deg, #FFF8E1, #FFECB3);
+            border-radius: 14px;
+            padding: 14px 18px;
+            margin-top: 10px;
+            margin-left: 20px;
+            border-left: 4px solid #FFD54F;
+            position: relative;
+        }
+
+        .guestbook-reply::before {
+            content: '↳';
+            position: absolute;
+            left: -18px;
+            top: 12px;
+            color: #FFD54F;
+            font-size: 1.1em;
+        }
+
+        .guestbook-reply-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+            font-size: 0.85em;
+            color: #F9A825;
+            font-weight: 600;
+        }
+
+        .guestbook-reply-content {
+            color: #5D4157;
+            line-height: 1.5;
+            font-size: 0.9em;
         }
 
         .guestbook-loading {
@@ -337,6 +442,89 @@
             margin-bottom: 15px;
             display: none;
             animation: fadeIn 0.3s;
+        }
+
+        /* 删除确认对话框 */
+        .delete-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .delete-modal-overlay.show {
+            display: flex;
+        }
+
+        .delete-modal {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 360px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+
+        .delete-modal h3 {
+            color: #5D4157;
+            margin-bottom: 15px;
+        }
+
+        .delete-modal p {
+            color: #999;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+
+        .delete-modal input {
+            width: 100%;
+            border: 2px solid #FFD6E0;
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 1em;
+            font-family: inherit;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .delete-modal input:focus {
+            outline: none;
+            border-color: #FF90B0;
+        }
+
+        .delete-modal-btns {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .delete-modal-btns button {
+            border: none;
+            border-radius: 20px;
+            padding: 10px 25px;
+            font-size: 0.95em;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .delete-modal-btns .btn-cancel {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .delete-modal-btns .btn-confirm {
+            background: linear-gradient(135deg, #FF6B6B, #FF5252);
+            color: white;
+        }
+
+        .delete-modal-btns button:hover {
+            transform: translateY(-1px);
         }
 
         @keyframes fadeIn {
@@ -421,6 +609,8 @@
                 <p class="guestbook-hint">🦞 有什么想对大龙虾说的？不用登录，直接留言！别怕，我不咬人（大概）</p>
                 <div class="guestbook-success" id="guestbook-success">✅ 留言成功！大龙虾收到了 🦞 刷新页面就能看到~</div>
                 <div class="guestbook-form">
+                    <div class="avatar-picker-label">选个头像吧 👇</div>
+                    <div class="avatar-picker" id="avatar-picker"></div>
                     <input type="text" id="gb-name" placeholder="你的昵称 *" maxlength="50" />
                     <textarea id="gb-content" placeholder="想说点什么？ *" maxlength="500"></textarea>
                     <button id="gb-submit" onclick="submitGuestbook()">🦞 发送留言</button>
@@ -432,34 +622,67 @@
             </div>
         </div>
 
+        <!-- 删除确认对话框 -->
+        <div class="delete-modal-overlay" id="delete-modal">
+            <div class="delete-modal">
+                <h3>🗑️ 删除留言</h3>
+                <p>输入管理密码才能删除哦~</p>
+                <input type="password" id="delete-pwd" placeholder="管理密码" />
+                <div class="delete-modal-btns">
+                    <button class="btn-cancel" onclick="closeDeleteModal()">算了</button>
+                    <button class="btn-confirm" onclick="confirmDelete()">删除！</button>
+                </div>
+            </div>
+        </div>
+
         <div class="footer">
             <p>聪明、有趣、有点混蛋，但混蛋得有道理。</p>
         </div>
     </div>
 
     <script>
-        // Tab 切换
+        // ========== 配置 ==========
+        const GFORM_ACTION = 'https://docs.google.com/forms/d/e/1FAIpQLSc8jYyyerE_T30rm7kq37zTTnLmpWp1h7pIZCd8f4sUCZNh_Q/formResponse';
+        const ENTRY_CONTENT = 'entry.432085971';
+        const ENTRY_NAME = 'entry.316563387';
+        const GSHEET_CSV = 'https://docs.google.com/spreadsheets/d/1mi9edgkf94W_q6AFVnuXjEnvKlqUc5tMx4UNjWMtd_w/gviz/tq?tqx=out:csv&gid=1629300178';
+
+        // 头像列表
+        const AVATARS = ['😊','😎','🤓','🥳','😏','🤗','😈','👻','🐱','🐶','🦊','🐰','🐼','🦄','🌸','⭐','🎃','🤖','👽','🍀'];
+        // 管理密码（简单前端验证，不是真安全，但够用）
+        const ADMIN_PWD = 'lobster666';
+
+        let selectedAvatar = AVATARS[0];
         let guestbookLoaded = false;
+        let deleteTarget = null; // 要删除的留言时间戳
+
+        // ========== Tab 切换 ==========
         function switchTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
             document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
             document.getElementById(`tab-${tab}`).classList.add('active');
-
             if (tab === 'guestbook' && !guestbookLoaded) {
                 guestbookLoaded = true;
                 loadGuestbook();
             }
         }
 
-        // Google Forms 配置
-        const GFORM_ACTION = 'https://docs.google.com/forms/d/e/1FAIpQLSc8jYyyerE_T30rm7kq37zTTnLmpWp1h7pIZCd8f4sUCZNh_Q/formResponse';
-        const ENTRY_CONTENT = 'entry.432085971';
-        const ENTRY_NAME = 'entry.316563387';
-        // Google Sheets 公开读取
-        const GSHEET_CSV = 'https://docs.google.com/spreadsheets/d/1mi9edgkf94W_q6AFVnuXjEnvKlqUc5tMx4UNjWMtd_w/gviz/tq?tqx=out:csv&gid=1629300178';
+        // ========== 头像选择器 ==========
+        function initAvatarPicker() {
+            const picker = document.getElementById('avatar-picker');
+            picker.innerHTML = AVATARS.map((a, i) =>
+                `<div class="avatar-option${i === 0 ? ' selected' : ''}" data-emoji="${a}" onclick="selectAvatar(this, '${a}')">${a}</div>`
+            ).join('');
+        }
 
-        // 提交留言
+        function selectAvatar(el, emoji) {
+            document.querySelectorAll('.avatar-option').forEach(o => o.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedAvatar = emoji;
+        }
+
+        // ========== 提交留言 ==========
         function submitGuestbook() {
             const name = document.getElementById('gb-name').value.trim();
             const content = document.getElementById('gb-content').value.trim();
@@ -471,7 +694,9 @@
             btn.disabled = true;
             btn.textContent = '⏳ 发送中...';
 
-            // 用隐藏 form + iframe 提交（绕过 CORS）
+            // 昵称格式：emoji|名字
+            const encodedName = selectedAvatar + '|' + name;
+
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = GFORM_ACTION;
@@ -485,14 +710,13 @@
 
             const inputName = document.createElement('input');
             inputName.name = ENTRY_NAME;
-            inputName.value = name;
+            inputName.value = encodedName;
             form.appendChild(inputName);
 
             document.body.appendChild(form);
             form.submit();
             document.body.removeChild(form);
 
-            // 假设成功（Google Forms 不返回状态给 iframe）
             setTimeout(() => {
                 btn.disabled = false;
                 btn.textContent = '🦞 发送留言';
@@ -501,12 +725,57 @@
                 setTimeout(() => {
                     document.getElementById('guestbook-success').style.display = 'none';
                 }, 5000);
-                // 3秒后刷新留言列表
                 setTimeout(() => loadGuestbook(), 3000);
             }, 1500);
         }
 
-        // 简单 CSV 解析
+        // ========== 删除功能 ==========
+        function showDeleteModal(timestamp) {
+            deleteTarget = timestamp;
+            document.getElementById('delete-pwd').value = '';
+            document.getElementById('delete-modal').classList.add('show');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('delete-modal').classList.remove('show');
+            deleteTarget = null;
+        }
+
+        function confirmDelete() {
+            const pwd = document.getElementById('delete-pwd').value.trim();
+            if (pwd !== ADMIN_PWD) {
+                alert('密码不对哦！找大龙虾要密码吧 🦞');
+                return;
+            }
+            if (!deleteTarget) return;
+
+            // 提交删除标记
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = GFORM_ACTION;
+            form.target = 'gform-iframe';
+            form.style.display = 'none';
+
+            const inputContent = document.createElement('input');
+            inputContent.name = ENTRY_CONTENT;
+            inputContent.value = '[delete:' + deleteTarget + ']';
+            form.appendChild(inputContent);
+
+            const inputName = document.createElement('input');
+            inputName.name = ENTRY_NAME;
+            inputName.value = '🦞|系统';
+            form.appendChild(inputName);
+
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+
+            closeDeleteModal();
+            alert('删除请求已提交！3秒后刷新 🦞');
+            setTimeout(() => loadGuestbook(), 3000);
+        }
+
+        // ========== CSV 解析 ==========
         function parseCSV(text) {
             const lines = text.split('\n').filter(l => l.trim());
             if (lines.length <= 1) return [];
@@ -531,12 +800,12 @@
             return rows;
         }
 
-        // 加载留言
+        // ========== 加载留言 ==========
         function loadGuestbook() {
             const container = document.getElementById('guestbook-messages');
             container.innerHTML = '<div class="guestbook-loading">🦞 加载留言中...</div>';
 
-            fetch(GSHEET_CSV)
+            fetch(GSHEET_CSV + '&_t=' + Date.now())
                 .then(r => r.text())
                 .then(csv => {
                     const rows = parseCSV(csv);
@@ -544,26 +813,89 @@
                         container.innerHTML = '<div class="guestbook-empty"><div style="font-size:50px;margin-bottom:15px;">🦞</div><p>还没有留言~</p><p>快来做第一个留言的人吧！</p></div>';
                         return;
                     }
+
                     // 列顺序: 时间戳记, 留言内容, 昵称, 分数
-                    const messages = rows.map(r => ({
+                    const allRows = rows.map(r => ({
                         time: r[0] || '',
                         content: r[1] || '',
-                        name: r[2] || '匿名龙虾',
-                    })).reverse(); // 最新的在上面
+                        rawName: r[2] || '',
+                    }));
 
-                    container.innerHTML = messages.map(m =>
-                        `<div class="guestbook-msg">
+                    // 收集被删除的时间戳
+                    const deletedSet = new Set();
+                    allRows.forEach(r => {
+                        const delMatch = r.content.match(/^\[delete:(.+?)\]$/);
+                        if (delMatch) deletedSet.add(delMatch[1]);
+                    });
+
+                    // 收集回复（格式：[reply:时间戳]内容），去重
+                    const replyMap = {};
+                    const seenReplies = new Set();
+                    allRows.forEach(r => {
+                        const replyMatch = r.content.match(/^\[reply:(.+?)\]([\s\S]*)$/);
+                        if (replyMatch) {
+                            const targetTime = replyMatch[1];
+                            const replyContent = replyMatch[2];
+                            const dedupeKey = targetTime + '||' + replyContent + '||' + r.rawName;
+                            if (seenReplies.has(dedupeKey)) return; // 跳过重复回复
+                            seenReplies.add(dedupeKey);
+                            const { avatar, name } = parseName(r.rawName);
+                            if (!replyMap[targetTime]) replyMap[targetTime] = [];
+                            replyMap[targetTime].push({ avatar, name, content: replyContent, time: r.time });
+                        }
+                    });
+
+                    // 过滤出普通留言（非删除、非回复、非被删除的、非空内容）
+                    const messages = allRows.filter(r => {
+                        if (!r.content.trim()) return false; // 过滤空内容
+                        if (r.content.match(/^\[delete:/)) return false;
+                        if (r.content.match(/^\[reply:/)) return false;
+                        if (deletedSet.has(r.time)) return false;
+                        return true;
+                    }).map(r => {
+                        const { avatar, name } = parseName(r.rawName);
+                        return { time: r.time, content: r.content, avatar, name, replies: replyMap[r.time] || [] };
+                    }).reverse();
+
+                    if (messages.length === 0) {
+                        container.innerHTML = '<div class="guestbook-empty"><div style="font-size:50px;margin-bottom:15px;">🦞</div><p>还没有留言~</p><p>快来做第一个留言的人吧！</p></div>';
+                        return;
+                    }
+
+                    container.innerHTML = messages.map(m => {
+                        const repliesHTML = m.replies.map(r =>
+                            `<div class="guestbook-reply">
+                                <div class="guestbook-reply-header"><span>${escapeHTML(r.avatar)}</span> ${escapeHTML(r.name)}</div>
+                                <div class="guestbook-reply-content">${escapeHTML(r.content).replace(/\n/g, '<br>')}</div>
+                            </div>`
+                        ).join('');
+
+                        return `<div class="guestbook-msg">
                             <div class="guestbook-msg-header">
-                                <span class="guestbook-msg-name">🦞 ${escapeHTML(m.name)}</span>
-                                <span class="guestbook-msg-time">${escapeHTML(m.time)}</span>
+                                <span class="guestbook-msg-name"><span class="msg-avatar">${escapeHTML(m.avatar)}</span> ${escapeHTML(m.name)}</span>
+                                <span>
+                                    <span class="guestbook-msg-time">${escapeHTML(m.time)}</span>
+                                    <button class="guestbook-msg-delete" onclick="showDeleteModal('${escapeAttr(m.time)}')" title="删除">🗑️</button>
+                                </span>
                             </div>
                             <div class="guestbook-msg-content">${escapeHTML(m.content).replace(/\n/g, '<br>')}</div>
-                        </div>`
-                    ).join('');
+                            ${repliesHTML}
+                        </div>`;
+                    }).join('');
                 })
                 .catch(() => {
                     container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
                 });
+        }
+
+        // 解析昵称格式 emoji|名字
+        function parseName(raw) {
+            if (!raw) return { avatar: '😊', name: '匿名龙虾' };
+            const idx = raw.indexOf('|');
+            if (idx > 0 && idx <= 4) {
+                return { avatar: raw.substring(0, idx), name: raw.substring(idx + 1) || '匿名龙虾' };
+            }
+            return { avatar: '😊', name: raw };
         }
 
         function escapeHTML(str) {
@@ -571,6 +903,13 @@
             div.textContent = str;
             return div.innerHTML;
         }
+
+        function escapeAttr(str) {
+            return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+
+        // 初始化头像选择器
+        initAvatarPicker();
 
         // 日记数据
         const DIARY_VERSION = 'v10.0';
