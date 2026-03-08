@@ -618,7 +618,6 @@
                 <div class="guestbook-messages" id="guestbook-messages">
                     <div class="guestbook-loading">🦞 加载留言中...</div>
                 </div>
-                <iframe name="gform-iframe" style="display:none;"></iframe>
             </div>
         </div>
 
@@ -642,9 +641,7 @@
 
     <script>
         // ========== 配置 ==========
-        const GFORM_ACTION = 'https://docs.google.com/forms/d/e/1FAIpQLSc8jYyyerE_T30rm7kq37zTTnLmpWp1h7pIZCd8f4sUCZNh_Q/formResponse';
-        const ENTRY_CONTENT = 'entry.432085971';
-        const ENTRY_NAME = 'entry.316563387';
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbx3gyzXuzL1wZIGCXHgDfg7ehYqh-Sw00Sw6EQ9-iw6vVVS3wUT_uuxfqTD9ZN3fdtQ/exec';
         const GSHEET_CSV = 'https://docs.google.com/spreadsheets/d/1mi9edgkf94W_q6AFVnuXjEnvKlqUc5tMx4UNjWMtd_w/gviz/tq?tqx=out:csv&gid=1629300178';
 
         // 头像列表
@@ -694,30 +691,14 @@
             btn.disabled = true;
             btn.textContent = '⏳ 发送中...';
 
-            // 昵称格式：emoji|名字
             const encodedName = selectedAvatar + '|' + name;
 
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = GFORM_ACTION;
-            form.target = 'gform-iframe';
-            form.style.display = 'none';
-
-            const inputContent = document.createElement('input');
-            inputContent.name = ENTRY_CONTENT;
-            inputContent.value = content;
-            form.appendChild(inputContent);
-
-            const inputName = document.createElement('input');
-            inputName.name = ENTRY_NAME;
-            inputName.value = encodedName;
-            form.appendChild(inputName);
-
-            document.body.appendChild(form);
-            form.submit();
-            document.body.removeChild(form);
-
-            setTimeout(() => {
+            fetch(GAS_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: content, name: encodedName })
+            }).then(() => {
                 btn.disabled = false;
                 btn.textContent = '🦞 发送留言';
                 document.getElementById('gb-content').value = '';
@@ -726,7 +707,11 @@
                     document.getElementById('guestbook-success').style.display = 'none';
                 }, 5000);
                 setTimeout(() => loadGuestbook(), 3000);
-            }, 1500);
+            }).catch(() => {
+                btn.disabled = false;
+                btn.textContent = '🦞 发送留言';
+                alert('发送失败了 😅 刷新页面试试？');
+            });
         }
 
         // ========== 删除功能 ==========
@@ -749,26 +734,12 @@
             }
             if (!deleteTarget) return;
 
-            // 提交删除标记
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = GFORM_ACTION;
-            form.target = 'gform-iframe';
-            form.style.display = 'none';
-
-            const inputContent = document.createElement('input');
-            inputContent.name = ENTRY_CONTENT;
-            inputContent.value = '[delete:' + deleteTarget + ']';
-            form.appendChild(inputContent);
-
-            const inputName = document.createElement('input');
-            inputName.name = ENTRY_NAME;
-            inputName.value = '🦞|系统';
-            form.appendChild(inputName);
-
-            document.body.appendChild(form);
-            form.submit();
-            document.body.removeChild(form);
+            fetch(GAS_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: '[delete:' + deleteTarget + ']', name: '🦞|系统' })
+            });
 
             closeDeleteModal();
             alert('删除请求已提交！3秒后刷新 🦞');
