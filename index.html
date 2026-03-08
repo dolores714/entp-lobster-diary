@@ -863,7 +863,7 @@
         function parseName(raw) {
             if (!raw) return { avatar: '😊', name: '匿名龙虾' };
             const idx = raw.indexOf('|');
-            if (idx > 0 && idx <= 4) {
+            if (idx > 0 && idx <= 10) {
                 return { avatar: raw.substring(0, idx), name: raw.substring(idx + 1) || '匿名龙虾' };
             }
             return { avatar: '😊', name: raw };
