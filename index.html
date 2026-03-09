@@ -643,6 +643,7 @@
     <script>
         // ========== 配置 ==========
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbx3gyzXuzL1wZIGCXHgDfg7ehYqh-Sw00Sw6EQ9-iw6vVVS3wUT_uuxfqTD9ZN3fdtQ/exec';
+        const MESSAGES_JSON = './messages.json';
         const GSHEET_CSV = 'https://docs.google.com/spreadsheets/d/1mi9edgkf94W_q6AFVnuXjEnvKlqUc5tMx4UNjWMtd_w/gviz/tq?tqx=out:csv&gid=1629300178';
         const GSHEET_JSONP = 'https://docs.google.com/spreadsheets/d/1mi9edgkf94W_q6AFVnuXjEnvKlqUc5tMx4UNjWMtd_w/gviz/tq?gid=1629300178&tqx=responseHandler:handleGuestbookData';
 
@@ -834,12 +835,9 @@
             const container = document.getElementById('guestbook-messages');
             container.innerHTML = '<div class="guestbook-loading">🦞 加载留言中...</div>';
 
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-            fetch(GAS_URL + '?_t=' + Date.now(), { signal: controller.signal, redirect: 'follow' })
+            // 从同域的 messages.json 读取（国内无需 VPN）
+            fetch(MESSAGES_JSON + '?_t=' + Date.now())
                 .then(r => {
-                    clearTimeout(timeoutId);
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
                 })
@@ -926,12 +924,7 @@
                     }).join('');
                 })
                 .catch((err) => {
-                    clearTimeout(timeoutId);
-                    if (err.name === 'AbortError') {
-                        container.innerHTML = '<div class="guestbook-empty"><div style="font-size:40px;margin-bottom:10px;">🌐</div><p>留言加载超时了～</p><p style="font-size:12px;color:#999;margin-top:6px;">可能是网络问题，刷新试试 🦞</p></div>';
-                    } else {
-                        container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
-                    }
+                    container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
                 });
         }
 
