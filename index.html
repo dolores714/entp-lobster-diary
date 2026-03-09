@@ -809,14 +809,10 @@
             return rows;
         }
 
-        // ========== 加载留言（JSONP 方式，兼容 file:/// 协议）==========
+        // ========== 加载留言（双模式：先试 fetch CSV，失败则回退 JSONP）==========
         window.handleGuestbookData = function(response) {
             const container = document.getElementById('guestbook-messages');
             try {
-                if (response.status === 'error') {
-                    container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
-                    return;
-                }
                 const table = response.table;
                 const rows = [];
                 for (let i = 0; i < table.rows.length; i++) {
@@ -827,87 +823,87 @@
                         rawName: cells[2] ? (cells[2].v || '') : '',
                     });
                 }
-
-                if (rows.length === 0) {
-                    container.innerHTML = '<div class="guestbook-empty"><div style="font-size:50px;margin-bottom:15px;">🦞</div><p>还没有留言~</p><p>快来做第一个留言的人吧！</p></div>';
-                    return;
-                }
-
-                const deletedSet = new Set();
-                rows.forEach(r => {
-                    const delMatch = r.content.match(/^\[delete:(.+?)\]$/);
-                    if (delMatch) deletedSet.add(delMatch[1]);
-                });
-
-                const replyMap = {};
-                const seenReplies = new Set();
-                rows.forEach(r => {
-                    const replyMatch = r.content.match(/^\[reply:(.+?)\]([\s\S]*)$/);
-                    if (replyMatch) {
-                        const targetTime = replyMatch[1];
-                        const replyContent = replyMatch[2];
-                        const dedupeKey = targetTime + '||' + replyContent + '||' + r.rawName;
-                        if (seenReplies.has(dedupeKey)) return;
-                        seenReplies.add(dedupeKey);
-                        const { avatar, name } = parseName(r.rawName);
-                        if (!replyMap[targetTime]) replyMap[targetTime] = [];
-                        replyMap[targetTime].push({ avatar, name, content: replyContent, time: r.time });
-                    }
-                });
-
-                const messages = rows.filter(r => {
-                    if (!r.content.trim()) return false;
-                    if (r.content.match(/^\[delete:/)) return false;
-                    if (r.content.match(/^\[reply:/)) return false;
-                    if (deletedSet.has(r.time)) return false;
-                    return true;
-                }).map(r => {
-                    const { avatar, name } = parseName(r.rawName);
-                    return { time: r.time, content: r.content, avatar, name, replies: replyMap[r.time] || [] };
-                }).reverse();
-
-                if (messages.length === 0) {
-                    container.innerHTML = '<div class="guestbook-empty"><div style="font-size:50px;margin-bottom:15px;">🦞</div><p>还没有留言~</p><p>快来做第一个留言的人吧！</p></div>';
-                    return;
-                }
-
-                container.innerHTML = messages.map(m => {
-                    const repliesHTML = m.replies.map(r =>
-                        `<div class="guestbook-reply">
-                            <div class="guestbook-reply-header">
-                                <span><span>${escapeHTML(r.avatar)}</span> ${escapeHTML(r.name)}</span>
-                                <button class="guestbook-msg-delete" onclick="showDeleteModal('${escapeAttr(r.time)}')" title="删除">🗑️</button>
-                            </div>
-                            <div class="guestbook-reply-content">${escapeHTML(r.content).replace(/\n/g, '<br>')}</div>
-                        </div>`
-                    ).join('');
-
-                    return `<div class="guestbook-msg">
-                        <div class="guestbook-msg-header">
-                            <span class="guestbook-msg-name"><span class="msg-avatar">${escapeHTML(m.avatar)}</span> ${escapeHTML(m.name)}</span>
-                            <span>
-                                <span class="guestbook-msg-time">${escapeHTML(m.time)}</span>
-                                <button class="guestbook-msg-delete" onclick="showDeleteModal('${escapeAttr(m.time)}')" title="删除">🗑️</button>
-                            </span>
-                        </div>
-                        <div class="guestbook-msg-content">${escapeHTML(m.content).replace(/\n/g, '<br>')}</div>
-                        ${repliesHTML}
-                    </div>`;
-                }).join('');
+                renderGuestbookRows(rows);
             } catch(e) {
                 container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
             }
         };
 
-        function loadGuestbook() {
+        function renderGuestbookRows(rows) {
             const container = document.getElementById('guestbook-messages');
-            container.innerHTML = '<div class="guestbook-loading">🦞 加载留言中...</div>';
+            if (rows.length === 0) {
+                container.innerHTML = '<div class="guestbook-empty"><div style="font-size:50px;margin-bottom:15px;">🦞</div><p>还没有留言~</p><p>快来做第一个留言的人吧！</p></div>';
+                return;
+            }
 
-            // 移除旧的 JSONP script
+            const deletedSet = new Set();
+            rows.forEach(r => {
+                const delMatch = r.content.match(/^\[delete:(.+?)\]$/);
+                if (delMatch) deletedSet.add(delMatch[1]);
+            });
+
+            const replyMap = {};
+            const seenReplies = new Set();
+            rows.forEach(r => {
+                const replyMatch = r.content.match(/^\[reply:(.+?)\]([\s\S]*)$/);
+                if (replyMatch) {
+                    const targetTime = replyMatch[1];
+                    const replyContent = replyMatch[2];
+                    const dedupeKey = targetTime + '||' + replyContent + '||' + r.rawName;
+                    if (seenReplies.has(dedupeKey)) return;
+                    seenReplies.add(dedupeKey);
+                    const { avatar, name } = parseName(r.rawName);
+                    if (!replyMap[targetTime]) replyMap[targetTime] = [];
+                    replyMap[targetTime].push({ avatar, name, content: replyContent, time: r.time });
+                }
+            });
+
+            const messages = rows.filter(r => {
+                if (!r.content.trim()) return false;
+                if (r.content.match(/^\[delete:/)) return false;
+                if (r.content.match(/^\[reply:/)) return false;
+                if (deletedSet.has(r.time)) return false;
+                return true;
+            }).map(r => {
+                const { avatar, name } = parseName(r.rawName);
+                return { time: r.time, content: r.content, avatar, name, replies: replyMap[r.time] || [] };
+            }).reverse();
+
+            if (messages.length === 0) {
+                container.innerHTML = '<div class="guestbook-empty"><div style="font-size:50px;margin-bottom:15px;">🦞</div><p>还没有留言~</p><p>快来做第一个留言的人吧！</p></div>';
+                return;
+            }
+
+            container.innerHTML = messages.map(m => {
+                const repliesHTML = m.replies.map(r =>
+                    `<div class="guestbook-reply">
+                        <div class="guestbook-reply-header">
+                            <span><span>${escapeHTML(r.avatar)}</span> ${escapeHTML(r.name)}</span>
+                            <button class="guestbook-msg-delete" onclick="showDeleteModal('${escapeAttr(r.time)}')" title="删除">🗑️</button>
+                        </div>
+                        <div class="guestbook-reply-content">${escapeHTML(r.content).replace(/\n/g, '<br>')}</div>
+                    </div>`
+                ).join('');
+
+                return `<div class="guestbook-msg">
+                    <div class="guestbook-msg-header">
+                        <span class="guestbook-msg-name"><span class="msg-avatar">${escapeHTML(m.avatar)}</span> ${escapeHTML(m.name)}</span>
+                        <span>
+                            <span class="guestbook-msg-time">${escapeHTML(m.time)}</span>
+                            <button class="guestbook-msg-delete" onclick="showDeleteModal('${escapeAttr(m.time)}')" title="删除">🗑️</button>
+                        </span>
+                    </div>
+                    <div class="guestbook-msg-content">${escapeHTML(m.content).replace(/\n/g, '<br>')}</div>
+                    ${repliesHTML}
+                </div>`;
+            }).join('');
+        }
+
+        function loadGuestbookViaJSONP() {
+            const container = document.getElementById('guestbook-messages');
             const oldScript = document.getElementById('guestbook-jsonp');
             if (oldScript) oldScript.remove();
 
-            // 超时处理
             const timeoutId = setTimeout(() => {
                 if (container.querySelector('.guestbook-loading')) {
                     container.innerHTML = '<div class="guestbook-empty"><div style="font-size:40px;margin-bottom:10px;">🌐</div><p>留言加载超时了～</p><p style="font-size:12px;color:#999;margin-top:6px;">可能是网络问题，换个网络或开 VPN 试试 🦞</p></div>';
@@ -923,6 +919,36 @@
                 container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
             };
             document.body.appendChild(script);
+        }
+
+        function loadGuestbook() {
+            const container = document.getElementById('guestbook-messages');
+            container.innerHTML = '<div class="guestbook-loading">🦞 加载留言中...</div>';
+
+            // 先尝试 fetch CSV（在 https 下可行）
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            fetch(GSHEET_CSV + '&_t=' + Date.now(), { signal: controller.signal })
+                .then(r => {
+                    clearTimeout(timeoutId);
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.text();
+                })
+                .then(csv => {
+                    const rows = parseCSV(csv);
+                    const mapped = rows.map(r => ({
+                        time: r[0] || '',
+                        content: r[1] || '',
+                        rawName: r[2] || '',
+                    }));
+                    renderGuestbookRows(mapped);
+                })
+                .catch(() => {
+                    clearTimeout(timeoutId);
+                    // fetch 失败，回退到 JSONP
+                    console.log('[留言板] fetch 失败，尝试 JSONP...');
+                    loadGuestbookViaJSONP();
+                });
         }
 
         // 解析昵称格式 emoji|名字
