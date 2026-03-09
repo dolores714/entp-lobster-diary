@@ -809,6 +809,26 @@
             return rows;
         }
 
+        // ========== 时间戳标准化（解决格式不一致的匹配问题）==========
+        // "2026-3-9 上午07:01:16" / "2026/3/9 07:01:16" / "2026-3-9 下午02:30:00" → "2026/3/9 7:01:16"
+        function normalizeTime(t) {
+            if (!t) return '';
+            // 去掉"上午""下午"，处理12小时制
+            let s = t.replace(/\s+/g, ' ').trim();
+            let isPM = false;
+            if (s.includes('下午') || s.toLowerCase().includes('pm')) { isPM = true; }
+            s = s.replace(/(上午|下午|AM|PM|am|pm)/g, '').trim();
+            // 统一分隔符
+            s = s.replace(/-/g, '/');
+            // 提取数字部分
+            const m = s.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2}):(\d{2})/);
+            if (!m) return t; // 无法解析就原样返回
+            let hour = parseInt(m[4]);
+            if (isPM && hour < 12) hour += 12;
+            if (!isPM && hour === 12 && t.includes('上午')) hour = 0;
+            return m[1] + '/' + parseInt(m[2]) + '/' + parseInt(m[3]) + ' ' + hour + ':' + m[5] + ':' + m[6];
+        }
+
         // ========== 加载留言（通过 GAS API，国内可直接访问）==========
         function loadGuestbook() {
             const container = document.getElementById('guestbook-messages');
@@ -826,6 +846,7 @@
                 .then(rows => {
                     const allRows = rows.map(r => ({
                         time: r.time || '',
+                        timeKey: normalizeTime(r.time || ''),
                         content: r.content || '',
                         rawName: r.name || '',
                     }));
@@ -835,27 +856,31 @@
                         return;
                     }
 
-                    // 收集被删除的时间戳
+                    // 收集被删除的时间戳（标准化后匹配）
                     const deletedSet = new Set();
                     allRows.forEach(r => {
                         const delMatch = r.content.match(/^\[delete:(.+?)\]$/);
-                        if (delMatch) deletedSet.add(delMatch[1]);
+                        if (delMatch) {
+                            deletedSet.add(normalizeTime(delMatch[1]));
+                            deletedSet.add(delMatch[1]); // 也保留原始格式
+                        }
                     });
 
-                    // 收集回复
+                    // 收集回复（标准化时间戳后匹配）
                     const replyMap = {};
                     const seenReplies = new Set();
                     allRows.forEach(r => {
                         const replyMatch = r.content.match(/^\[reply:(.+?)\]([\s\S]*)$/);
                         if (replyMatch) {
-                            const targetTime = replyMatch[1];
+                            const targetTimeRaw = replyMatch[1];
+                            const targetTimeKey = normalizeTime(targetTimeRaw);
                             const replyContent = replyMatch[2];
-                            const dedupeKey = targetTime + '||' + replyContent + '||' + r.rawName;
+                            const dedupeKey = targetTimeKey + '||' + replyContent + '||' + r.rawName;
                             if (seenReplies.has(dedupeKey)) return;
                             seenReplies.add(dedupeKey);
                             const { avatar, name } = parseName(r.rawName);
-                            if (!replyMap[targetTime]) replyMap[targetTime] = [];
-                            replyMap[targetTime].push({ avatar, name, content: replyContent, time: r.time });
+                            if (!replyMap[targetTimeKey]) replyMap[targetTimeKey] = [];
+                            replyMap[targetTimeKey].push({ avatar, name, content: replyContent, time: r.time });
                         }
                     });
 
@@ -864,11 +889,11 @@
                         if (!r.content.trim()) return false;
                         if (r.content.match(/^\[delete:/)) return false;
                         if (r.content.match(/^\[reply:/)) return false;
-                        if (deletedSet.has(r.time)) return false;
+                        if (deletedSet.has(r.timeKey) || deletedSet.has(r.time)) return false;
                         return true;
                     }).map(r => {
                         const { avatar, name } = parseName(r.rawName);
-                        return { time: r.time, content: r.content, avatar, name, replies: replyMap[r.time] || [] };
+                        return { time: r.time, timeKey: r.timeKey, content: r.content, avatar, name, replies: replyMap[r.timeKey] || [] };
                     }).reverse();
 
                     if (messages.length === 0) {
