@@ -676,6 +676,7 @@
     <script>
         // ========== 配置 ==========
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbx3gyzXuzL1wZIGCXHgDfg7ehYqh-Sw00Sw6EQ9-iw6vVVS3wUT_uuxfqTD9ZN3fdtQ/exec';
+        const WORKER_URL = 'https://lobster-guestbook.daimingyue7.workers.dev/';
         const MESSAGES_JSON = './messages.json';
         const GSHEET_CSV = 'https://docs.google.com/spreadsheets/d/1mi9edgkf94W_q6AFVnuXjEnvKlqUc5tMx4UNjWMtd_w/gviz/tq?tqx=out:csv&gid=1629300178';
         const GSHEET_JSONP = 'https://docs.google.com/spreadsheets/d/1mi9edgkf94W_q6AFVnuXjEnvKlqUc5tMx4UNjWMtd_w/gviz/tq?gid=1629300178&tqx=responseHandler:handleGuestbookData';
@@ -729,6 +730,25 @@
 
             const encodedName = selectedAvatar + '|' + name;
 
+            // 乐观更新：立即把留言插到页面顶部
+            const now = new Date();
+            const timeStr = now.getFullYear() + '/' + (now.getMonth()+1) + '/' + now.getDate() + ' ' +
+                now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
+            const container = document.getElementById('guestbook-messages');
+            const emptyMsg = container.querySelector('.guestbook-empty');
+            if (emptyMsg) emptyMsg.remove();
+            const newMsgDiv = document.createElement('div');
+            newMsgDiv.className = 'guestbook-msg';
+            newMsgDiv.style.border = '2px dashed #ff6b6b';
+            newMsgDiv.innerHTML = `
+                <div class="guestbook-msg-header">
+                    <span class="guestbook-msg-name"><span class="msg-avatar">${escapeHTML(selectedAvatar)}</span> ${escapeHTML(name)}</span>
+                    <span><span class="guestbook-msg-time">${escapeHTML(timeStr)} ✨刚刚发的</span></span>
+                </div>
+                <div class="guestbook-msg-content">${escapeHTML(content).replace(/\n/g, '<br>')}</div>
+            `;
+            container.insertBefore(newMsgDiv, container.firstChild);
+
             fetch(GAS_URL, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -742,10 +762,13 @@
                 setTimeout(() => {
                     document.getElementById('guestbook-success').style.display = 'none';
                 }, 5000);
-                setTimeout(() => loadGuestbook(), 3000);
+                // 30秒后静默刷新，让乐观插入的留言被真实数据替换
+                setTimeout(() => loadGuestbook(), 30000);
             }).catch(() => {
                 btn.disabled = false;
                 btn.textContent = '🦞 发送留言';
+                // 提交失败，移除乐观插入
+                newMsgDiv.remove();
                 alert('发送失败了 😅 刷新页面试试？');
             });
         }
@@ -863,19 +886,45 @@
             return m[1] + '/' + parseInt(m[2]) + '/' + parseInt(m[3]) + ' ' + hour + ':' + m[5] + ':' + m[6];
         }
 
-        // ========== 加载留言（通过 GAS API，国内可直接访问）==========
+        // ========== 带超时的 fetch ==========
+        function fetchWithTimeout(url, opts, timeoutMs) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer));
+        }
+
+        // ========== 加载留言（多数据源 fallback）==========
         function loadGuestbook() {
             const container = document.getElementById('guestbook-messages');
             container.innerHTML = '<div class="guestbook-loading">🦞 加载留言中...</div>';
 
-            // 从同域的 messages.json 读取（国内无需 VPN）
-            fetch(MESSAGES_JSON + '?_t=' + Date.now())
-                .then(r => {
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
-                    return r.json();
-                })
+            // 数据源优先级：Worker(实时) → GAS API(实时) → messages.json(静态兜底)
+            fetchWithTimeout(WORKER_URL + '?_t=' + Date.now(), {}, 5000)
+                .then(r => { if (!r.ok) throw new Error('Worker HTTP ' + r.status); return r.json(); })
+                .catch(() =>
+                    fetchWithTimeout(GAS_URL, {}, 8000)
+                        .then(r => {
+                            if (r.redirected) return fetch(r.url).then(rr => rr.json());
+                            if (!r.ok) throw new Error('GAS HTTP ' + r.status);
+                            return r.json();
+                        })
+                )
+                .catch(() =>
+                    fetch(MESSAGES_JSON + '?_t=' + Date.now())
+                        .then(r => { if (!r.ok) throw new Error('JSON HTTP ' + r.status); return r.json(); })
+                )
                 .then(rows => {
-                    const allRows = rows.map(r => ({
+                    renderGuestbookData(rows);
+                })
+                .catch((err) => {
+                    container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
+                });
+        }
+
+        // ========== 渲染留言数据 ==========
+        function renderGuestbookData(rows) {
+            const container = document.getElementById('guestbook-messages');
+            const allRows = rows.map(r => ({
                         time: r.time || '',
                         timeKey: normalizeTime(r.time || ''),
                         content: r.content || '',
@@ -955,10 +1004,6 @@
                             ${repliesHTML}
                         </div>`;
                     }).join('');
-                })
-                .catch((err) => {
-                    container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
-                });
         }
 
         // 解析昵称格式 emoji|名字
