@@ -923,28 +923,52 @@
             return data;
         }
 
-        // ========== 加载留言（多数据源 fallback）==========
+        // ========== 加载留言（多数据源，静态优先+实时增量）==========
         async function loadGuestbook() {
             const container = document.getElementById('guestbook-messages');
             container.innerHTML = '<div class="guestbook-loading">🦞 加载留言中...</div>';
 
-            // 数据源优先级：Worker(实时) → GAS API(实时) → messages.json(静态兜底)
+            // 策略：先加载 messages.json（最快、最稳、国内可达）
+            // 然后异步尝试 Worker/GAS 拿实时数据，成功则替换
             let rows = null;
-            try { rows = await tryLoadFromWorker(); } catch(e) { /* Worker failed, try next */ }
-            if (!rows) {
-                try { rows = await tryLoadFromGAS(); } catch(e) { /* GAS failed, try next */ }
-            }
-            if (!rows) {
-                try { rows = await tryLoadFromJSON(); } catch(e) { /* JSON also failed */ }
-            }
 
+            // 第一步：快速加载静态 JSON（通常 <200ms）
+            try { rows = await tryLoadFromJSON(); } catch(e) { /* JSON failed */ }
+
+            // 如果静态 JSON 成功，先渲染
             if (rows && rows.length > 0) {
                 renderGuestbookData(rows);
-            } else if (rows && rows.length === 0) {
-                container.innerHTML = '<div class="guestbook-empty"><div style="font-size:50px;margin-bottom:15px;">🦞</div><p>还没有留言~</p><p>快来做第一个留言的人吧！</p></div>';
-            } else {
+            }
+
+            // 第二步：后台尝试实时数据源，成功则刷新覆盖
+            tryLoadRealtime().then(realtimeRows => {
+                if (realtimeRows && realtimeRows.length > 0) {
+                    renderGuestbookData(realtimeRows);
+                }
+            }).catch(() => { /* 实时源全挂了，用静态数据就好 */ });
+
+            // 如果静态 JSON 也没数据，显示错误
+            if (!rows || rows.length === 0) {
+                // 给实时源一个机会，等最多6秒
+                try {
+                    const realtimeRows = await Promise.race([
+                        tryLoadRealtime(),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000))
+                    ]);
+                    if (realtimeRows && realtimeRows.length > 0) {
+                        renderGuestbookData(realtimeRows);
+                        return;
+                    }
+                } catch(e) { /* all failed */ }
                 container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
             }
+        }
+
+        // 尝试实时数据源：Worker → GAS
+        async function tryLoadRealtime() {
+            try { return await tryLoadFromWorker(); } catch(e) {}
+            try { return await tryLoadFromGAS(); } catch(e) {}
+            throw new Error('All realtime sources failed');
         }
 
         // ========== 渲染留言数据 ==========
