@@ -996,16 +996,42 @@
                         }
                     });
 
-                    // 收集回复（标准化时间戳后匹配）
+                    // 收集所有留言的时间戳（用于模糊匹配回复）
+                    const allTimeKeys = new Set(allRows.map(r => r.timeKey));
+
+                    // 模糊时间匹配：解析为秒级时间戳，允许±5秒偏差
+                    function timeKeyToSeconds(tk) {
+                        const m = tk.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2}):(\d{2})/);
+                        if (!m) return null;
+                        return new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]), parseInt(m[4]), parseInt(m[5]), parseInt(m[6])).getTime() / 1000;
+                    }
+
+                    function findClosestTimeKey(targetKey) {
+                        if (allTimeKeys.has(targetKey)) return targetKey;
+                        // 模糊匹配：找±5秒内最近的
+                        const targetSec = timeKeyToSeconds(targetKey);
+                        if (!targetSec) return targetKey;
+                        let bestKey = targetKey, bestDiff = Infinity;
+                        allTimeKeys.forEach(tk => {
+                            const sec = timeKeyToSeconds(tk);
+                            if (sec && Math.abs(sec - targetSec) < bestDiff && Math.abs(sec - targetSec) <= 5) {
+                                bestDiff = Math.abs(sec - targetSec);
+                                bestKey = tk;
+                            }
+                        });
+                        return bestKey;
+                    }
+
+                    // 收集回复（标准化时间戳后匹配，支持模糊匹配）
                     const replyMap = {};
                     const seenReplies = new Set();
                     allRows.forEach(r => {
                         const replyMatch = r.content.match(/^\[reply:(.+?)\]([\s\S]*)$/);
                         if (replyMatch) {
                             const targetTimeRaw = replyMatch[1];
-                            const targetTimeKey = normalizeTime(targetTimeRaw);
+                            const targetTimeKey = findClosestTimeKey(normalizeTime(targetTimeRaw));
                             const replyContent = replyMatch[2];
-                            const dedupeKey = targetTimeKey + '||' + replyContent + '||' + r.rawName;
+                            const dedupeKey = targetTimeKey + '||' + replyContent.substring(0, 100) + '||' + r.rawName;
                             if (seenReplies.has(dedupeKey)) return;
                             seenReplies.add(dedupeKey);
                             const { avatar, name } = parseName(r.rawName);
@@ -1014,11 +1040,12 @@
                         }
                     });
 
-                    // 过滤普通留言
+                    // 过滤普通留言（排除 test 垃圾、删除标记、回复）
                     const messages = allRows.filter(r => {
                         if (!r.content.trim()) return false;
                         if (r.content.match(/^\[delete:/)) return false;
                         if (r.content.match(/^\[reply:/)) return false;
+                        if (r.rawName.startsWith('🦞|test')) return false;
                         if (deletedSet.has(r.timeKey) || deletedSet.has(r.time)) return false;
                         return true;
                     }).map(r => {
