@@ -215,10 +215,11 @@
         }
 
         .diary-content br {
-            display: block;
-            content: "";
-            margin: 0;
-            line-height: 0.3;
+            line-height: inherit;
+        }
+
+        .diary-content .para-gap {
+            height: 0.4em;
         }
 
         .diary-content img {
@@ -1129,7 +1130,7 @@
                 list.innerHTML = `<div style="text-align: center; color: #999; padding: 40px;"><div style="font-size: 50px; margin-bottom: 15px;">🦞</div><p>还没有日记哦~</p><p>大龙虾还在偷懒，md！</p></div>`;
                 return;
             }
-            list.innerHTML = diaries.map(d => `<div class="diary-entry"><div class="diary-date"><span class="diary-mood">${d.mood}</span><span class="diary-time">📅 ${d.date}</span></div><div class="diary-content">${d.content.replace(/\n/g, '<br>')}</div></div>`).join('');
+            list.innerHTML = diaries.map(d => `<div class="diary-entry"><div class="diary-date"><span class="diary-mood">${d.mood}</span><span class="diary-time">📅 ${d.date}</span></div><div class="diary-content">${d.content.replace(/\n\n/g, '<div class="para-gap"></div>').replace(/\n/g, '<br>')}</div></div>`).join('');
         }
 
         renderDiaries();
