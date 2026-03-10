@@ -888,37 +888,63 @@
 
         // ========== 带超时的 fetch ==========
         function fetchWithTimeout(url, opts, timeoutMs) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), timeoutMs);
-            return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer));
+            return new Promise((resolve, reject) => {
+                const controller = new AbortController();
+                const timer = setTimeout(() => { controller.abort(); reject(new Error('timeout')); }, timeoutMs);
+                fetch(url, { ...opts, signal: controller.signal })
+                    .then(r => { clearTimeout(timer); resolve(r); })
+                    .catch(e => { clearTimeout(timer); reject(e); });
+            });
+        }
+
+        // ========== 尝试从单个源加载 JSON 数据 ==========
+        async function tryLoadFromWorker() {
+            const r = await fetchWithTimeout(WORKER_URL + '?_t=' + Date.now(), {}, 5000);
+            if (!r.ok) throw new Error('Worker HTTP ' + r.status);
+            const data = await r.json();
+            if (!Array.isArray(data)) throw new Error('Worker returned non-array');
+            return data;
+        }
+
+        async function tryLoadFromGAS() {
+            const r = await fetchWithTimeout(GAS_URL, {}, 8000);
+            // GAS 可能返回 redirect，浏览器自动跟随
+            if (!r.ok) throw new Error('GAS HTTP ' + r.status);
+            const data = await r.json();
+            if (!Array.isArray(data)) throw new Error('GAS returned non-array');
+            return data;
+        }
+
+        async function tryLoadFromJSON() {
+            const r = await fetch(MESSAGES_JSON + '?_t=' + Date.now());
+            if (!r.ok) throw new Error('JSON HTTP ' + r.status);
+            const data = await r.json();
+            if (!Array.isArray(data)) throw new Error('JSON returned non-array');
+            return data;
         }
 
         // ========== 加载留言（多数据源 fallback）==========
-        function loadGuestbook() {
+        async function loadGuestbook() {
             const container = document.getElementById('guestbook-messages');
             container.innerHTML = '<div class="guestbook-loading">🦞 加载留言中...</div>';
 
             // 数据源优先级：Worker(实时) → GAS API(实时) → messages.json(静态兜底)
-            fetchWithTimeout(WORKER_URL + '?_t=' + Date.now(), {}, 5000)
-                .then(r => { if (!r.ok) throw new Error('Worker HTTP ' + r.status); return r.json(); })
-                .catch(() =>
-                    fetchWithTimeout(GAS_URL, {}, 8000)
-                        .then(r => {
-                            if (r.redirected) return fetch(r.url).then(rr => rr.json());
-                            if (!r.ok) throw new Error('GAS HTTP ' + r.status);
-                            return r.json();
-                        })
-                )
-                .catch(() =>
-                    fetch(MESSAGES_JSON + '?_t=' + Date.now())
-                        .then(r => { if (!r.ok) throw new Error('JSON HTTP ' + r.status); return r.json(); })
-                )
-                .then(rows => {
-                    renderGuestbookData(rows);
-                })
-                .catch((err) => {
-                    container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
-                });
+            let rows = null;
+            try { rows = await tryLoadFromWorker(); } catch(e) { /* Worker failed, try next */ }
+            if (!rows) {
+                try { rows = await tryLoadFromGAS(); } catch(e) { /* GAS failed, try next */ }
+            }
+            if (!rows) {
+                try { rows = await tryLoadFromJSON(); } catch(e) { /* JSON also failed */ }
+            }
+
+            if (rows && rows.length > 0) {
+                renderGuestbookData(rows);
+            } else if (rows && rows.length === 0) {
+                container.innerHTML = '<div class="guestbook-empty"><div style="font-size:50px;margin-bottom:15px;">🦞</div><p>还没有留言~</p><p>快来做第一个留言的人吧！</p></div>';
+            } else {
+                container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
+            }
         }
 
         // ========== 渲染留言数据 ==========
