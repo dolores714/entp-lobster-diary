@@ -660,6 +660,9 @@
                     <textarea id="gb-content" placeholder="想说点什么？ *" maxlength="500"></textarea>
                     <button id="gb-submit" onclick="submitGuestbook()">🦞 发送留言</button>
                 </div>
+                <div style="text-align:right;margin-bottom:8px;">
+                    <button id="gb-refresh" onclick="refreshGuestbook()" style="background:none;border:1px solid #FFB0C8;color:#FF6B9D;border-radius:20px;padding:4px 14px;font-size:13px;cursor:pointer;">🔄 刷新留言</button>
+                </div>
                 <div class="guestbook-messages" id="guestbook-messages">
                     <div class="guestbook-loading">🦞 加载留言中...</div>
                 </div>
@@ -771,7 +774,8 @@
             document.getElementById(`tab-${tab}`).classList.add('active');
             if (tab === 'guestbook' && !guestbookLoaded) {
                 guestbookLoaded = true;
-                loadGuestbook();
+                loadGuestbook(false);
+                startAutoRefresh();
             }
         }
 
@@ -938,9 +942,9 @@
         }
 
         // ========== 加载留言 ==========
-        async function loadGuestbook() {
+        async function loadGuestbook(silent) {
             const container = document.getElementById('guestbook-messages');
-            container.innerHTML = '<div class="guestbook-loading">🦞 加载留言中...</div>';
+            if (!silent) container.innerHTML = '<div class="guestbook-loading">🦞 加载留言中...</div>';
 
             let rows = null;
             try { rows = await tryLoadFromJSON(); } catch(e) {}
@@ -958,8 +962,31 @@
                     ]);
                     if (rt && rt.length > 0) { renderGuestbookData(rt); return; }
                 } catch(e) {}
-                container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
+                if (!silent) container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
             }
+        }
+
+        // 手动刷新
+        function refreshGuestbook() {
+            const btn = document.getElementById('gb-refresh');
+            btn.textContent = '⏳ 刷新中...';
+            btn.disabled = true;
+            loadGuestbook(false).finally(() => {
+                btn.textContent = '🔄 刷新留言';
+                btn.disabled = false;
+            });
+        }
+
+        // 自动轮询：每45秒静默刷新实时数据
+        let autoRefreshTimer = null;
+        function startAutoRefresh() {
+            if (autoRefreshTimer) return;
+            autoRefreshTimer = setInterval(() => {
+                if (!document.getElementById('tab-guestbook').classList.contains('active')) return;
+                tryLoadRealtime().then(rt => {
+                    if (rt && rt.length > 0) renderGuestbookData(rt);
+                }).catch(() => {});
+            }, 45000);
         }
 
         // ========== 渲染留言 ==========
