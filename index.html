@@ -690,7 +690,6 @@
     <script>
         // ========== 配置 ==========
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbx3gyzXuzL1wZIGCXHgDfg7ehYqh-Sw00Sw6EQ9-iw6vVVS3wUT_uuxfqTD9ZN3fdtQ/exec';
-        const WORKER_URL = 'https://lobster-guestbook.daimingyue7.workers.dev/';
         const MESSAGES_JSON = './messages.json';
         const AVATARS = ['😊','😎','🤓','🥳','😏','🤗','😈','👻','🐱','🐶','🦊','🐰','🐼','🦄','🌸','⭐','🎃','🤖','👽','🍀'];
         const ADMIN_PWD = 'lobster666';
@@ -795,8 +794,8 @@
             selectedAvatar = emoji;
         }
 
-        // ========== [修复1+4] 提交留言 ==========
-        async function submitGuestbook() {
+        // ========== 提交留言（直接 GAS no-cors，快速可靠） ==========
+        function submitGuestbook() {
             const name = document.getElementById('gb-name').value.trim();
             const content = document.getElementById('gb-content').value.trim();
             if (!name || !content) { alert('昵称和留言内容都要填哦！🦞'); return; }
@@ -808,9 +807,8 @@
             btn.disabled = true;
             btn.textContent = '⏳ 发送中...';
             const encodedName = selectedAvatar + '|' + name;
-            const payload = { content, name: encodedName };
 
-            // 乐观更新
+            // 乐观更新——立即在页面上显示
             const now = new Date();
             const timeStr = now.getFullYear()+'/'+(now.getMonth()+1)+'/'+now.getDate()+' '+
                 String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
@@ -828,43 +826,49 @@
                 <div class="guestbook-msg-content">${escapeHTML(content).replace(/\n/g,'<br>')}</div>`;
             container.insertBefore(newDiv, container.firstChild);
 
-            let ok = false;
-            // 优先 Worker（支持 CORS，能确认结果）
-            try {
-                const resp = await fetchWithTimeout(WORKER_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                }, 10000);
-                ok = resp.ok;
-            } catch(e) {
-                // Worker 失败，回退 GAS（no-cors，带 timeout）
-                try {
-                    await fetchWithTimeout(GAS_URL, {
-                        method: 'POST', mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    }, 15000);
-                    ok = true;
-                } catch(e2) {}
-            }
-
-            btn.disabled = false;
-            btn.textContent = '🦞 发送留言';
-
-            if (ok) {
+            // GAS no-cors POST（Content-Type 必须用 text/plain，application/json 在 no-cors 下会被浏览器拦截）
+            // no-cors 返回 opaque response，无法判断真实状态，但实测 GAS 能正常写入
+            let finished = false;
+            const safetyTimer = setTimeout(() => {
+                if (finished) return;
+                finished = true;
+                // 8秒超时保底：视为成功（GAS 通常 2-3 秒处理完）
+                btn.disabled = false;
+                btn.textContent = '🦞 发送留言';
                 document.getElementById('gb-content').value = '';
                 const succ = document.getElementById('guestbook-success');
                 succ.style.display = 'block';
                 setTimeout(() => { succ.style.display = 'none'; }, 5000);
-                setTimeout(() => loadGuestbook(), 5000);
-            } else {
+            }, 8000);
+
+            fetch(GAS_URL, {
+                method: 'POST', mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ content, name: encodedName })
+            }).then(() => {
+                if (finished) return;
+                finished = true;
+                clearTimeout(safetyTimer);
+                btn.disabled = false;
+                btn.textContent = '🦞 发送留言';
+                document.getElementById('gb-content').value = '';
+                const succ = document.getElementById('guestbook-success');
+                succ.style.display = 'block';
+                setTimeout(() => { succ.style.display = 'none'; }, 5000);
+                // 6秒后刷新确认新留言
+                setTimeout(() => loadGuestbook(true), 6000);
+            }).catch(() => {
+                if (finished) return;
+                finished = true;
+                clearTimeout(safetyTimer);
+                btn.disabled = false;
+                btn.textContent = '🦞 发送留言';
                 newDiv.remove();
-                alert('发送失败了 😅 刷新页面试试？');
-            }
+                alert('发送失败了 😅 网络不太好，刷新页面试试？');
+            });
         }
 
-        // ========== [修复3] 删除功能（Worker CORS 优先） ==========
+        // ========== 删除功能 ==========
         function showDeleteModal(ts) {
             deleteTarget = ts;
             document.getElementById('delete-pwd').value = '';
@@ -876,7 +880,7 @@
             deleteTarget = null;
         }
 
-        async function confirmDelete() {
+        function confirmDelete() {
             const pwd = document.getElementById('delete-pwd').value.trim();
             if (pwd !== ADMIN_PWD) { alert('密码不对哦！找大龙虾要密码吧 🦞'); return; }
             if (!deleteTarget) return;
@@ -885,43 +889,18 @@
             confirmBtn.disabled = true;
             confirmBtn.textContent = '删除中...';
 
-            // 同时发送原始时间和归一化时间两种格式的删除标记，确保匹配
-            const normalizedTarget = normalizeTime(deleteTarget);
-            const payloads = [
-                { content: '[delete:' + deleteTarget + ']', name: '🦞|系统' }
-            ];
-            // 如果归一化后不同，多发一条
-            if (normalizedTarget !== deleteTarget) {
-                payloads.push({ content: '[delete:' + normalizedTarget + ']', name: '🦞|系统' });
-            }
+            // 发送删除标记到 GAS（使用前端显示的原始时间戳）
+            const payload = { content: '[delete:' + deleteTarget + ']', name: '🦞|系统' };
 
-            let ok = false;
-            for (const payload of payloads) {
-                try {
-                    const resp = await fetchWithTimeout(WORKER_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    }, 8000);
-                    if (resp.ok) ok = true;
-                } catch(e) {
-                    try {
-                        await fetchWithTimeout(GAS_URL, {
-                            method: 'POST', mode: 'no-cors',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        }, 10000);
-                        ok = true;
-                    } catch(e2) {}
-                }
-            }
-
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = '删除！';
-            closeDeleteModal();
-
-            if (ok) {
-                // 乐观删除：从页面立即淡出对应留言
+            fetch(GAS_URL, {
+                method: 'POST', mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '删除！';
+                closeDeleteModal();
+                // 乐观删除：从页面立即淡出
                 document.querySelectorAll('.guestbook-msg').forEach(el => {
                     const timeEl = el.querySelector('.guestbook-msg-time');
                     if (timeEl && timeEl.textContent.trim() === deleteTarget) {
@@ -930,23 +909,19 @@
                         setTimeout(() => el.remove(), 500);
                     }
                 });
-                setTimeout(() => loadGuestbook(), 5000);
-            } else {
+                // 5秒后刷新确认
+                setTimeout(() => loadGuestbook(true), 5000);
+            }).catch(() => {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '删除！';
+                closeDeleteModal();
                 alert('删除失败了 😅 稍后再试');
-            }
+            });
         }
 
         // ========== 数据源加载 ==========
-        async function tryLoadFromWorker() {
-            const r = await fetchWithTimeout(WORKER_URL+'?_t='+Date.now(), {}, 5000);
-            if (!r.ok) throw new Error('fail');
-            const d = await r.json();
-            if (!Array.isArray(d)) throw new Error('bad');
-            return d;
-        }
-
         async function tryLoadFromGAS() {
-            const r = await fetchWithTimeout(GAS_URL, {}, 15000);
+            const r = await fetchWithTimeout(GAS_URL+'?_t='+Date.now(), {}, 12000);
             if (!r.ok) throw new Error('fail');
             const d = await r.json();
             if (!Array.isArray(d)) throw new Error('bad');
@@ -961,40 +936,25 @@
             return d;
         }
 
-        async function tryLoadRealtime() {
-            // Worker 和 GAS 并行竞速，谁先返回用谁
-            const results = await Promise.allSettled([
-                tryLoadFromWorker(),
-                tryLoadFromGAS()
-            ]);
-            for (const r of results) {
-                if (r.status === 'fulfilled' && r.value && r.value.length > 0) return r.value;
-            }
-            throw new Error('all failed');
-        }
-
         // ========== 加载留言 ==========
         async function loadGuestbook(silent) {
             const container = document.getElementById('guestbook-messages');
             if (!silent) container.innerHTML = '<div class="guestbook-loading">🦞 加载留言中...</div>';
 
+            // 先尝试静态 JSON 作为快速渲染
             let rows = null;
             try { rows = await tryLoadFromJSON(); } catch(e) {}
             if (rows && rows.length > 0) renderGuestbookData(rows);
 
-            tryLoadRealtime().then(rt => {
+            // 再用 GAS 拉实时数据覆盖
+            try {
+                const rt = await tryLoadFromGAS();
                 if (rt && rt.length > 0) renderGuestbookData(rt);
-            }).catch(() => {});
-
-            if (!rows || rows.length === 0) {
-                try {
-                    const rt = await Promise.race([
-                        tryLoadRealtime(),
-                        new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 6000))
-                    ]);
-                    if (rt && rt.length > 0) { renderGuestbookData(rt); return; }
-                } catch(e) {}
-                if (!silent) container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
+            } catch(e) {
+                // GAS 也失败了
+                if (!rows || rows.length === 0) {
+                    if (!silent) container.innerHTML = '<div class="guestbook-empty"><p>😅 加载留言失败了，刷新试试？</p></div>';
+                }
             }
         }
 
@@ -1009,16 +969,16 @@
             });
         }
 
-        // 自动轮询：每45秒静默刷新实时数据
+        // 自动轮询：每60秒静默刷新
         let autoRefreshTimer = null;
         function startAutoRefresh() {
             if (autoRefreshTimer) return;
             autoRefreshTimer = setInterval(() => {
                 if (!document.getElementById('tab-guestbook').classList.contains('active')) return;
-                tryLoadRealtime().then(rt => {
+                tryLoadFromGAS().then(rt => {
                     if (rt && rt.length > 0) renderGuestbookData(rt);
                 }).catch(() => {});
-            }, 45000);
+            }, 60000);
         }
 
         // ========== 渲染留言 ==========
@@ -1034,14 +994,16 @@
                 return;
             }
 
+            // 收集删除目标时间戳（带±5秒模糊匹配，解决 GAS 写入时间偏差问题）
             const deletedSet = new Set();
             allRows.forEach(r => {
                 const m = r.content.match(/^\[delete:(.+?)\]$/);
                 if (m) {
-                    deletedSet.add(normalizeTime(m[1]));
-                    deletedSet.add(m[1]);
-                    // 也加入±5秒的模糊匹配
-                    const ts = timeKeyToSeconds(normalizeTime(m[1]));
+                    const raw = m[1];
+                    deletedSet.add(raw);
+                    deletedSet.add(normalizeTime(raw));
+                    // ±5秒模糊匹配
+                    const ts = timeKeyToSeconds(normalizeTime(raw));
                     if (ts) {
                         for (let d = -5; d <= 5; d++) {
                             const dt = new Date((ts+d)*1000);
