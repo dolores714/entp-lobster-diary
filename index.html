@@ -739,15 +739,17 @@
         function normalizeTime(t) {
             if (!t) return '';
             let s = t.replace(/\s+/g, ' ').trim();
-            let isPM = false;
-            if (s.includes('下午') || s.toLowerCase().includes('pm')) isPM = true;
-            s = s.replace(/(上午|下午|AM|PM|am|pm)/g, '').trim().replace(/-/g, '/');
-            const m = s.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2}):(\d{2})/);
+            let isPM = false, isAM = false;
+            if (s.includes('下午') || /pm/i.test(s)) isPM = true;
+            if (s.includes('上午') || /am/i.test(s)) isAM = true;
+            s = s.replace(/(上午|下午|AM|PM|am|pm)/gi, '').trim().replace(/-/g, '/');
+            const m = s.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2}):?(\d{2})?/);
             if (!m) return t;
             let hour = parseInt(m[4]);
             if (isPM && hour < 12) hour += 12;
-            if (!isPM && hour === 12 && t.includes('上午')) hour = 0;
-            return m[1]+'/'+parseInt(m[2])+'/'+parseInt(m[3])+' '+hour+':'+m[5]+':'+m[6];
+            if (isAM && hour === 12) hour = 0;
+            const sec = m[6] ? m[6] : '00';
+            return m[1]+'/'+parseInt(m[2])+'/'+parseInt(m[3])+' '+hour+':'+m[5]+':'+sec;
         }
 
         function timeKeyToSeconds(tk) {
@@ -794,7 +796,7 @@
         }
 
         // ========== [修复1+4] 提交留言 ==========
-        function submitGuestbook() {
+        async function submitGuestbook() {
             const name = document.getElementById('gb-name').value.trim();
             const content = document.getElementById('gb-content').value.trim();
             if (!name || !content) { alert('昵称和留言内容都要填哦！🦞'); return; }
@@ -806,6 +808,7 @@
             btn.disabled = true;
             btn.textContent = '⏳ 发送中...';
             const encodedName = selectedAvatar + '|' + name;
+            const payload = { content, name: encodedName };
 
             // 乐观更新
             const now = new Date();
@@ -825,25 +828,40 @@
                 <div class="guestbook-msg-content">${escapeHTML(content).replace(/\n/g,'<br>')}</div>`;
             container.insertBefore(newDiv, container.firstChild);
 
-            fetch(GAS_URL, {
-                method: 'POST', mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content, name: encodedName })
-            }).then(() => {
-                btn.disabled = false;
-                btn.textContent = '🦞 发送留言';
+            let ok = false;
+            // 优先 Worker（支持 CORS，能确认结果）
+            try {
+                const resp = await fetchWithTimeout(WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }, 10000);
+                ok = resp.ok;
+            } catch(e) {
+                // Worker 失败，回退 GAS（no-cors，带 timeout）
+                try {
+                    await fetchWithTimeout(GAS_URL, {
+                        method: 'POST', mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    }, 15000);
+                    ok = true;
+                } catch(e2) {}
+            }
+
+            btn.disabled = false;
+            btn.textContent = '🦞 发送留言';
+
+            if (ok) {
                 document.getElementById('gb-content').value = '';
                 const succ = document.getElementById('guestbook-success');
                 succ.style.display = 'block';
                 setTimeout(() => { succ.style.display = 'none'; }, 5000);
-                // [修复1] 10秒后刷新（原来30秒太慢）
-                setTimeout(() => loadGuestbook(), 10000);
-            }).catch(() => {
-                btn.disabled = false;
-                btn.textContent = '🦞 发送留言';
+                setTimeout(() => loadGuestbook(), 5000);
+            } else {
                 newDiv.remove();
                 alert('发送失败了 😅 刷新页面试试？');
-            });
+            }
         }
 
         // ========== [修复3] 删除功能（Worker CORS 优先） ==========
@@ -867,27 +885,35 @@
             confirmBtn.disabled = true;
             confirmBtn.textContent = '删除中...';
 
-            const payload = { content: '[delete:' + deleteTarget + ']', name: '🦞|系统' };
-            let ok = false;
+            // 同时发送原始时间和归一化时间两种格式的删除标记，确保匹配
+            const normalizedTarget = normalizeTime(deleteTarget);
+            const payloads = [
+                { content: '[delete:' + deleteTarget + ']', name: '🦞|系统' }
+            ];
+            // 如果归一化后不同，多发一条
+            if (normalizedTarget !== deleteTarget) {
+                payloads.push({ content: '[delete:' + normalizedTarget + ']', name: '🦞|系统' });
+            }
 
-            try {
-                // 优先 Worker（支持 CORS，能确认结果）
-                const resp = await fetchWithTimeout(WORKER_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                }, 8000);
-                ok = resp.ok;
-            } catch(e) {
-                // Worker 挂了，回退 GAS
+            let ok = false;
+            for (const payload of payloads) {
                 try {
-                    await fetch(GAS_URL, {
-                        method: 'POST', mode: 'no-cors',
+                    const resp = await fetchWithTimeout(WORKER_URL, {
+                        method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
-                    });
-                    ok = true; // no-cors 无法确认，假设成功
-                } catch(e2) {}
+                    }, 8000);
+                    if (resp.ok) ok = true;
+                } catch(e) {
+                    try {
+                        await fetchWithTimeout(GAS_URL, {
+                            method: 'POST', mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        }, 10000);
+                        ok = true;
+                    } catch(e2) {}
+                }
             }
 
             confirmBtn.disabled = false;
@@ -1011,7 +1037,19 @@
             const deletedSet = new Set();
             allRows.forEach(r => {
                 const m = r.content.match(/^\[delete:(.+?)\]$/);
-                if (m) { deletedSet.add(normalizeTime(m[1])); deletedSet.add(m[1]); }
+                if (m) {
+                    deletedSet.add(normalizeTime(m[1]));
+                    deletedSet.add(m[1]);
+                    // 也加入±5秒的模糊匹配
+                    const ts = timeKeyToSeconds(normalizeTime(m[1]));
+                    if (ts) {
+                        for (let d = -5; d <= 5; d++) {
+                            const dt = new Date((ts+d)*1000);
+                            const fuzzy = dt.getFullYear()+'/'+(dt.getMonth()+1)+'/'+dt.getDate()+' '+dt.getHours()+':'+String(dt.getMinutes()).padStart(2,'0')+':'+String(dt.getSeconds()).padStart(2,'0');
+                            deletedSet.add(fuzzy);
+                        }
+                    }
+                }
             });
 
             const allTimeKeys = new Set(allRows.map(r => r.timeKey));
