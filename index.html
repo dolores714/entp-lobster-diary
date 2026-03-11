@@ -1031,6 +1031,7 @@
             const replyMap = {};
             const seenReplies = new Set();
             allRows.forEach(r => {
+                if (deletedSet.has(r.timeKey) || deletedSet.has(r.time)) return;
                 const m = r.content.match(/^\[reply:(.+?)\]([\s\S]*)$/);
                 if (m) {
                     const tk = findClosestTimeKey(normalizeTime(m[1]));
