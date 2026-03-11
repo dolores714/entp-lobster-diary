@@ -920,7 +920,7 @@
         }
 
         async function tryLoadFromGAS() {
-            const r = await fetchWithTimeout(GAS_URL, {}, 8000);
+            const r = await fetchWithTimeout(GAS_URL, {}, 15000);
             if (!r.ok) throw new Error('fail');
             const d = await r.json();
             if (!Array.isArray(d)) throw new Error('bad');
@@ -936,8 +936,14 @@
         }
 
         async function tryLoadRealtime() {
-            try { return await tryLoadFromWorker(); } catch(e) {}
-            try { return await tryLoadFromGAS(); } catch(e) {}
+            // Worker 和 GAS 并行竞速，谁先返回用谁
+            const results = await Promise.allSettled([
+                tryLoadFromWorker(),
+                tryLoadFromGAS()
+            ]);
+            for (const r of results) {
+                if (r.status === 'fulfilled' && r.value && r.value.length > 0) return r.value;
+            }
             throw new Error('all failed');
         }
 
